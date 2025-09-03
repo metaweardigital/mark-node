@@ -1,0 +1,13 @@
+{
+  "name": "Project Name",
+  "description": "Brief project description",
+  "version": "1.0.0",
+  "thinking_preference": "auto",
+  "agents": {
+    "frontend": "agents/frontend-developer.md",
+    "backend": "agents/backend-developer.md",
+    "database": "agents/database-specialist.md",
+    "testing": "agents/testing-engineer.md",
+    "devops": "agents/devops-engineer.md"
+  }
+}

@@ -1,0 +1,95 @@
+# IMPORTANT: When using this template for a new project:
+# 1. Delete the .git folder: rm -rf .git
+# 2. Initialize your own git: git init
+# 3. Add your own remote: git remote add origin YOUR_REPO_URL
+# This prevents accidentally pushing to the template repository!
+
+# Dependencies
+node_modules/
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.nuxt/
+.output/
+
+# Testing
+coverage/
+*.lcov
+.nyc_output/
+test-results/
+playwright-report/
+playwright/.cache/
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Cache
+.eslintcache
+.stylelintcache
+.prettiercache
+*.tsbuildinfo
+.cache/
+.parcel-cache/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+prisma/migrations/dev/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# OS files
+Thumbs.db
+Desktop.ini
+
+# Claude Code
+.claude/settings.local.json
+.claude/cache/
+.claude/sessions/
+
+# MCP
+mcp-logs/
+.mcp-cache/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Misc
+*.pem
+*.key
+*.cert
+.vercel/
+.turbo/

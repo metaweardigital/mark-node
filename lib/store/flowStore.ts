@@ -1,0 +1,398 @@
+import { create } from 'zustand'
+import { 
+  addEdge, 
+  applyNodeChanges, 
+  applyEdgeChanges,
+  OnNodesChange,
+  OnEdgesChange,
+  OnConnect,
+} from 'reactflow'
+import { FlowNode, FlowEdge, FlowState } from '@/types/flow.types'
+
+interface FlowStore extends FlowState {
+  setNodes: (nodes: FlowNode[]) => void
+  setEdges: (edges: FlowEdge[]) => void
+  onNodesChange: OnNodesChange
+  onEdgesChange: OnEdgesChange
+  onConnect: OnConnect
+  updateNodeValue: (nodeId: string, value: number) => void
+  setSelectedNode: (nodeId: string | null) => void
+  calculateFlow: () => void
+  reset: () => void
+}
+
+const initialNodes: FlowNode[] = [
+  {
+    id: '1',
+    type: 'source',
+    position: { x: 100, y: 100 },
+    data: {
+      label: 'Site Visitors',
+      value: 10000,
+      unit: 'visitors',
+      isAdjustable: true,
+      min: 0,
+      max: 100000,
+      step: 100,
+      description: 'Total monthly website visitors'
+    }
+  },
+  {
+    id: '2',
+    type: 'processor',
+    position: { x: 350, y: 100 },
+    data: {
+      label: 'Registration',
+      value: 15,
+      unit: 'percentage',
+      isAdjustable: true,
+      min: 0,
+      max: 100,
+      step: 0.5,
+      successRate: 15,
+      description: 'Visitor to registration conversion'
+    }
+  },
+  {
+    id: '3',
+    type: 'processor',
+    position: { x: 600, y: 100 },
+    data: {
+      label: 'Joins',
+      value: 76.8,
+      unit: 'percentage',
+      isAdjustable: true,
+      min: 0,
+      max: 100,
+      step: 0.1,
+      successRate: 76.8,
+      description: 'Registration to paid conversion'
+    }
+  },
+  {
+    id: '4',
+    type: 'processor',
+    position: { x: 850, y: 100 },
+    data: {
+      label: 'Price',
+      value: 29.90,
+      unit: 'currency',
+      isAdjustable: true,
+      min: 9.90,
+      max: 99.90,
+      step: 1,
+      description: 'Subscription price'
+    }
+  },
+  {
+    id: '5',
+    type: 'processor',
+    position: { x: 600, y: 250 },
+    data: {
+      label: 'Rebills',
+      value: 89.2,
+      unit: 'percentage',
+      isAdjustable: true,
+      min: 0,
+      max: 100,
+      step: 0.1,
+      successRate: 89.2,
+      description: 'Monthly retention rate'
+    }
+  },
+  {
+    id: '6',
+    type: 'outcome',
+    position: { x: 1100, y: 100 },
+    data: {
+      label: 'Revenue',
+      value: 0,
+      unit: 'currency',
+      isAdjustable: false,
+      trend: 0,
+      description: 'Total monthly revenue'
+    }
+  },
+  {
+    id: '7',
+    type: 'outcome',
+    position: { x: 1100, y: 250 },
+    data: {
+      label: 'Profit',
+      value: 0,
+      unit: 'currency',
+      isAdjustable: false,
+      trend: 0,
+      description: 'Monthly profit after expenses'
+    }
+  }
+]
+
+const initialEdges: FlowEdge[] = [
+  {
+    id: 'e1-2',
+    source: '1',
+    sourceHandle: 'source',
+    target: '2',
+    targetHandle: 'target',
+    type: 'animated',
+    animated: true,
+    data: {
+      value: 1500,
+      conversionRate: 15,
+      status: 'optimal'
+    }
+  },
+  {
+    id: 'e2-3',
+    source: '2',
+    sourceHandle: 'source',
+    target: '3',
+    targetHandle: 'target',
+    type: 'animated',
+    animated: true,
+    data: {
+      value: 1152,
+      conversionRate: 76.8,
+      status: 'optimal'
+    }
+  },
+  {
+    id: 'e3-4',
+    source: '3',
+    sourceHandle: 'source',
+    target: '4',
+    targetHandle: 'target',
+    type: 'animated',
+    animated: true,
+    data: {
+      value: 1152,
+      conversionRate: 100,
+      status: 'optimal'
+    }
+  },
+  {
+    id: 'e4-6',
+    source: '4',
+    sourceHandle: 'source',
+    target: '6',
+    targetHandle: 'target',
+    type: 'animated',
+    animated: true,
+    data: {
+      value: 34445,
+      conversionRate: 100,
+      status: 'optimal'
+    }
+  },
+  {
+    id: 'e3-5',
+    source: '3',
+    sourceHandle: 'source',
+    target: '5',
+    targetHandle: 'target',
+    type: 'animated',
+    animated: true,
+    data: {
+      value: 1028,
+      conversionRate: 89.2,
+      status: 'optimal'
+    }
+  },
+  {
+    id: 'e5-6',
+    source: '5',
+    sourceHandle: 'source',
+    target: '6',
+    targetHandle: 'target',
+    type: 'animated',
+    animated: true,
+    data: {
+      value: 30737,
+      conversionRate: 100,
+      status: 'optimal'
+    }
+  },
+  {
+    id: 'e6-7',
+    source: '6',
+    sourceHandle: 'source',
+    target: '7',
+    targetHandle: 'target',
+    type: 'animated',
+    animated: true,
+    data: {
+      value: 65182,
+      conversionRate: 60,
+      status: 'warning'
+    }
+  }
+]
+
+export const useFlowStore = create<FlowStore>((set, get) => ({
+  nodes: initialNodes,
+  edges: initialEdges,
+  selectedNode: null,
+  isCalculating: false,
+
+  setNodes: (nodes) => set({ nodes }),
+  setEdges: (edges) => set({ edges }),
+  
+  onNodesChange: (changes) => {
+    set({
+      nodes: applyNodeChanges(changes, get().nodes) as FlowNode[]
+    })
+  },
+
+  onEdgesChange: (changes) => {
+    set({
+      edges: applyEdgeChanges(changes, get().edges) as FlowEdge[]
+    })
+  },
+
+  onConnect: (connection) => {
+    set({
+      edges: addEdge(connection, get().edges) as FlowEdge[]
+    })
+  },
+
+  updateNodeValue: (nodeId, value) => {
+    set((state) => ({
+      nodes: state.nodes.map((node) =>
+        node.id === nodeId
+          ? { ...node, data: { ...node.data, value } }
+          : node
+      ),
+      isCalculating: true
+    }))
+    
+    // Trigger recalculation after state update
+    setTimeout(() => get().calculateFlow(), 0)
+  },
+
+  setSelectedNode: (nodeId) => set({ selectedNode: nodeId }),
+
+  calculateFlow: () => {
+    const { nodes, edges } = get()
+    
+    // Get input values
+    const visitors = nodes.find(n => n.id === '1')?.data.value || 0
+    const regRate = nodes.find(n => n.id === '2')?.data.value || 0
+    const joinRate = nodes.find(n => n.id === '3')?.data.value || 0
+    const price = nodes.find(n => n.id === '4')?.data.value || 0
+    const rebillRate = nodes.find(n => n.id === '5')?.data.value || 0
+
+    // Calculate flow through the pipeline
+    const registrations = visitors * (regRate / 100)
+    const joins = registrations * (joinRate / 100)
+    const initialRevenue = joins * price
+    const rebills = joins * (rebillRate / 100)
+    const recurringRevenue = rebills * price
+    const totalRevenue = initialRevenue + recurringRevenue
+    const profit = totalRevenue * 0.6 // 60% profit margin
+
+    // Find the minimum conversion rate (bottleneck)
+    const conversionRates = [regRate, joinRate, rebillRate, 60] // 60% for profit margin
+    const minConversionRate = Math.min(...conversionRates)
+
+    // Update node values
+    const updatedNodes = nodes.map(node => {
+      switch (node.id) {
+        case '6': // Revenue
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              value: Math.round(totalRevenue),
+              trend: node.data.value ? ((totalRevenue - node.data.value) / node.data.value) * 100 : 0
+            }
+          }
+        case '7': // Profit
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              value: Math.round(profit),
+              trend: node.data.value ? ((profit - node.data.value) / node.data.value) * 100 : 0
+            }
+          }
+        default:
+          return node
+      }
+    })
+
+    // Update edge data with flow values and dynamic status
+    const updatedEdges = edges.map(edge => {
+      let flowValue = 0
+      let conversionRate = edge.data.conversionRate
+
+      // Calculate actual flow values for each edge
+      switch (edge.id) {
+        case 'e1-2':
+          flowValue = registrations
+          conversionRate = regRate
+          break
+        case 'e2-3':
+          flowValue = joins
+          conversionRate = joinRate
+          break
+        case 'e3-4':
+          flowValue = joins
+          break
+        case 'e4-6':
+          flowValue = initialRevenue
+          break
+        case 'e3-5':
+          flowValue = rebills
+          conversionRate = rebillRate
+          break
+        case 'e5-6':
+          flowValue = recurringRevenue
+          break
+        case 'e6-7':
+          flowValue = profit
+          conversionRate = 60
+          break
+      }
+
+      // Determine status based on performance relative to average
+      let status: 'optimal' | 'warning' | 'critical' = 'optimal'
+      
+      // If this is the bottleneck, mark as critical
+      if (conversionRate === minConversionRate && conversionRate < 50) {
+        status = 'critical'
+      } else if (conversionRate < 30) {
+        status = 'critical'
+      } else if (conversionRate < 60) {
+        status = 'warning'
+      } else {
+        status = 'optimal'
+      }
+      
+      return {
+        ...edge,
+        data: {
+          ...edge.data,
+          value: Math.round(flowValue),
+          conversionRate,
+          status
+        }
+      }
+    })
+
+    set({
+      nodes: updatedNodes,
+      edges: updatedEdges,
+      isCalculating: false
+    })
+  },
+
+  reset: () => {
+    set({
+      nodes: initialNodes,
+      edges: initialEdges,
+      selectedNode: null,
+      isCalculating: false
+    })
+  }
+}))
