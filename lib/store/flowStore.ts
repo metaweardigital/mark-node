@@ -19,6 +19,7 @@ interface FlowStore extends FlowState {
   setSelectedNode: (nodeId: string | null) => void
   calculateFlow: () => void
   reset: () => void
+  loadRealData: (data: any) => void
 }
 
 const initialNodes: FlowNode[] = [
@@ -324,7 +325,7 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     // Update edge data with flow values and dynamic status
     const updatedEdges = edges.map(edge => {
       let flowValue = 0
-      let conversionRate = edge.data.conversionRate
+      let conversionRate = edge.data?.conversionRate || 0
 
       // Calculate actual flow values for each edge
       switch (edge.id) {
@@ -394,5 +395,67 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
       selectedNode: null,
       isCalculating: false
     })
+  },
+
+  loadRealData: (data: any) => {
+    // Process the pasted data and update nodes
+    const { updateNodeValue, calculateFlow } = get()
+    
+    // Extract metrics from the data
+    // Supporting multiple formats: CSV, JSON, or structured text
+    
+    // If data contains website metrics
+    if (data.visitors || data.uniqueVisitors || data.users) {
+      const visitors = data.visitors || data.uniqueVisitors || data.users || 0
+      updateNodeValue('1', visitors)
+    }
+    
+    // Registration/signup rate
+    if (data.registrationRate || data.signupRate || data.conversionRate) {
+      const regRate = data.registrationRate || data.signupRate || data.conversionRate || 0
+      updateNodeValue('2', regRate)
+    } else if (data.signups && data.visitors) {
+      // Calculate rate from raw numbers
+      const regRate = (data.signups / data.visitors) * 100
+      updateNodeValue('2', regRate)
+    }
+    
+    // Join/purchase rate
+    if (data.joinRate || data.purchaseRate || data.trialToPayRate) {
+      const joinRate = data.joinRate || data.purchaseRate || data.trialToPayRate || 0
+      updateNodeValue('3', joinRate)
+    } else if (data.purchases && data.signups) {
+      // Calculate rate from raw numbers
+      const joinRate = (data.purchases / data.signups) * 100
+      updateNodeValue('3', joinRate)
+    }
+    
+    // Average price
+    if (data.price || data.averageOrderValue || data.aov) {
+      const price = data.price || data.averageOrderValue || data.aov || 0
+      updateNodeValue('4', price)
+    }
+    
+    // Rebill/retention rate
+    if (data.rebillRate || data.retentionRate || data.recurringRate) {
+      const rebillRate = data.rebillRate || data.retentionRate || data.recurringRate || 0
+      updateNodeValue('5', rebillRate)
+    }
+    
+    // If raw transaction data is provided
+    if (data.transactions || data.charges) {
+      const transactions = data.transactions || data.charges || []
+      if (Array.isArray(transactions) && transactions.length > 0) {
+        // Calculate average price from transactions
+        const avgPrice = transactions.reduce((sum: number, t: any) => 
+          sum + (t.amount || t.price || 0), 0) / transactions.length
+        updateNodeValue('4', avgPrice)
+      }
+    }
+    
+    // Trigger recalculation
+    setTimeout(() => calculateFlow(), 100)
+    
+    console.log('Data loaded successfully:', data)
   }
 }))

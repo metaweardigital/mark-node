@@ -2,10 +2,15 @@ import React from 'react'
 import { Handle, Position, NodeProps } from 'reactflow'
 import { Settings, TrendingUp, TrendingDown } from 'lucide-react'
 import { NodeData } from '@/types/flow.types'
-import { useFlowStore } from '@/lib/store/flowStore'
+import { useImprovedFlowStore } from '@/lib/store/improvedFlowStore'
 
 export function ProcessorNode({ id, data, selected }: NodeProps<NodeData>) {
-  const updateNodeValue = useFlowStore((state) => state.updateNodeValue)
+  const updateNodeValue = useImprovedFlowStore((state) => state.updateNodeValue)
+  
+  // Return null if node is hidden
+  if ((data as any).hidden) {
+    return null
+  }
 
   const handleInputClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -33,6 +38,12 @@ export function ProcessorNode({ id, data, selected }: NodeProps<NodeData>) {
       {data.successRate && (
         <div className="absolute -top-2 -right-2 bg-white text-blue-600 rounded-full px-2 py-0.5 text-xs font-bold shadow">
           {data.successRate.toFixed(1)}%
+        </div>
+      )}
+      
+      {(data as any).description && (
+        <div className="text-xs text-white/80 mb-1">
+          {(data as any).description}
         </div>
       )}
 

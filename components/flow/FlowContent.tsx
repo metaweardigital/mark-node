@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useMemo } from 'react'
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -8,10 +8,11 @@ import ReactFlow, {
   BackgroundVariant,
 } from 'reactflow'
 
-import { useFlowStore } from '@/lib/store/flowStore'
+import { useImprovedFlowStore } from '@/lib/store/improvedFlowStore'
 import { SourceNode } from './nodes/SourceNode'
 import { ProcessorNode } from './nodes/ProcessorNode'
 import { OutcomeNode } from './nodes/OutcomeNode'
+import { EnhancedProductFilterNode } from './nodes/EnhancedProductFilterNode'
 import { AnimatedEdge } from './edges/AnimatedEdge'
 import { BottleneckPanel } from '@/components/ui/BottleneckPanel'
 import { ScenarioPanel } from '@/components/ui/ScenarioPanel'
@@ -23,6 +24,7 @@ const nodeTypes = {
   source: SourceNode,
   processor: ProcessorNode,
   outcome: OutcomeNode,
+  enhancedProductFilter: EnhancedProductFilterNode,
 }
 
 const edgeTypes = {
@@ -59,13 +61,17 @@ const getNodeColor = (node: any) => {
 }
 
 export function FlowContent() {
-  const nodes = useFlowStore((state) => state.nodes)
-  const edges = useFlowStore((state) => state.edges)
-  const onNodesChange = useFlowStore((state) => state.onNodesChange)
-  const onEdgesChange = useFlowStore((state) => state.onEdgesChange)
-  const onConnect = useFlowStore((state) => state.onConnect)
-  const setSelectedNode = useFlowStore((state) => state.setSelectedNode)
-  const calculateFlow = useFlowStore((state) => state.calculateFlow)
+  const nodes = useImprovedFlowStore((state) => state.nodes)
+  const edges = useImprovedFlowStore((state) => state.edges)
+  const onNodesChange = useImprovedFlowStore((state) => state.onNodesChange)
+  const onEdgesChange = useImprovedFlowStore((state) => state.onEdgesChange)
+  const onConnect = useImprovedFlowStore((state) => state.onConnect)
+  const setSelectedNode = useImprovedFlowStore((state) => state.setSelectedNode)
+  const calculateFlow = useImprovedFlowStore((state) => state.calculateFlow)
+
+  // Memoize node and edge types to prevent React Flow warnings
+  const memoizedNodeTypes = useMemo(() => nodeTypes, [])
+  const memoizedEdgeTypes = useMemo(() => edgeTypes, [])
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: any) => {
     setSelectedNode(node.id)
@@ -95,8 +101,8 @@ export function FlowContent() {
         onConnect={onConnect}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
+        nodeTypes={memoizedNodeTypes}
+        edgeTypes={memoizedEdgeTypes}
         fitView
         fitViewOptions={fitViewOptions}
         defaultEdgeOptions={defaultEdgeOptions}
@@ -105,9 +111,12 @@ export function FlowContent() {
         nodesDraggable={true}
         nodesConnectable={true}
         elementsSelectable={true}
-        panOnDrag={false}
+        panOnDrag={true}
+        panOnScroll={true}
+        zoomOnScroll={true}
+        zoomOnPinch={true}
+        zoomOnDoubleClick={true}
         selectionOnDrag={false}
-        autoPanOnNodeDrag={false}
       >
         <Controls />
         <MiniMap 
