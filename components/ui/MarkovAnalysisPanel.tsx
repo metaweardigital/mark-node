@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { TrendingUp, Users, DollarSign, Activity, ChevronRight } from 'lucide-react'
-import { useFlowStore } from '@/lib/store/flowStore'
+import { useImprovedFlowStore } from '@/lib/store/improvedFlowStore'
 import { MarkovChainCalculator, createSubscriptionMarkovChain } from '@/lib/calculations/markov'
 
 interface PredictionData {
@@ -18,7 +18,7 @@ export function MarkovAnalysisPanel() {
   const [predictions, setPredictions] = useState<PredictionData | null>(null)
   const [selectedPeriod, setSelectedPeriod] = useState(12) // months
   
-  const nodes = useFlowStore((state) => state.nodes)
+  const nodes = useImprovedFlowStore((state) => state.nodes)
   
   useEffect(() => {
     calculatePredictions()

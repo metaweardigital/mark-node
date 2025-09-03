@@ -2,11 +2,11 @@
 
 import React from 'react'
 import { AlertTriangle, TrendingDown, Activity, DollarSign } from 'lucide-react'
-import { useFlowStore } from '@/lib/store/flowStore'
+import { useImprovedFlowStore } from '@/lib/store/improvedFlowStore'
 
 export function BottleneckPanel() {
-  const nodes = useFlowStore((state) => state.nodes)
-  const edges = useFlowStore((state) => state.edges)
+  const nodes = useImprovedFlowStore((state) => state.nodes)
+  const edges = useImprovedFlowStore((state) => state.edges)
 
   // Find the bottleneck (lowest conversion rate)
   const bottleneck = edges.reduce((min, edge) => {
@@ -22,10 +22,9 @@ export function BottleneckPanel() {
     if (!bottleneck) return 0
     
     const visitors = nodes.find(n => n.id === '1')?.data.value || 0
-    const price = nodes.find(n => n.id === '4')?.data.value || 0
     
-    // Calculate current revenue
-    const currentRevenue = nodes.find(n => n.id === '6')?.data.value || 0
+    // Calculate current MRR
+    const currentRevenue = nodes.find(n => n.id === 'mrr')?.data.value || 0
     
     // Calculate potential with 10% improvement in bottleneck
     const improvedRate = Math.min(bottleneck.data.conversionRate * 1.1, 100)
@@ -64,16 +63,15 @@ export function BottleneckPanel() {
       {/* Overall Metrics */}
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-          <div className="text-xs text-gray-500 mb-1">Total Revenue</div>
+          <div className="text-xs text-gray-500 mb-1">Monthly Revenue</div>
           <div className="text-lg font-semibold">
-            ${(nodes.find(n => n.id === '6')?.data.value || 0).toLocaleString()}
+            ${(nodes.find(n => n.id === 'mrr')?.data.value || 0).toLocaleString()}
           </div>
         </div>
         <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-          <div className="text-xs text-gray-500 mb-1">Profit Margin</div>
+          <div className="text-xs text-gray-500 mb-1">Annual Revenue</div>
           <div className="text-lg font-semibold">
-            {((nodes.find(n => n.id === '7')?.data.value || 0) / 
-              (nodes.find(n => n.id === '6')?.data.value || 1) * 100).toFixed(0)}%
+            ${(nodes.find(n => n.id === 'arr')?.data.value || 0).toLocaleString()}
           </div>
         </div>
       </div>

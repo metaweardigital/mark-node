@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { Calendar, TrendingDown, Users, ChevronRight, Download, DollarSign } from 'lucide-react'
-import { useFlowStore } from '@/lib/store/flowStore'
+import { useImprovedFlowStore } from '@/lib/store/improvedFlowStore'
 import { MarkovChainCalculator, createSubscriptionMarkovChain } from '@/lib/calculations/markov'
 
 interface CohortData {
@@ -19,7 +19,7 @@ export function CohortAnalysisPanel() {
   const [viewMode, setViewMode] = useState<'retention' | 'revenue'>('retention')
   const [showPercentage, setShowPercentage] = useState(true)
   
-  const nodes = useFlowStore((state) => state.nodes)
+  const nodes = useImprovedFlowStore((state) => state.nodes)
   
   useEffect(() => {
     generateCohortData()

@@ -232,12 +232,12 @@ export const PRODUCT_STATS = {
   totalNetworks: NETWORKS.length,
   activeNetworks: NETWORKS.filter(n => n.status === 'Active').length,
   
-  // Average prices across all products
+  // Average prices across all products (using only active sites)
   averagePrices: {
     sites: {
-      '1_month': SITES.reduce((sum, s) => sum + s.pricing['1_month'], 0) / SITES.length,
-      '3_months': SITES.reduce((sum, s) => sum + s.pricing['3_months'], 0) / SITES.length,
-      '6_months': SITES.reduce((sum, s) => sum + s.pricing['6_months'], 0) / SITES.length
+      '1_month': SITES.filter(s => s.status === 'Active').reduce((sum, s) => sum + s.pricing['1_month'], 0) / SITES.filter(s => s.status === 'Active').length,
+      '3_months': SITES.filter(s => s.status === 'Active').reduce((sum, s) => sum + s.pricing['3_months'], 0) / SITES.filter(s => s.status === 'Active').length,
+      '6_months': SITES.filter(s => s.status === 'Active').reduce((sum, s) => sum + s.pricing['6_months'], 0) / SITES.filter(s => s.status === 'Active').length
     },
     networks: {
       '1_month': NETWORKS.reduce((sum, n) => sum + n.pricing['1_month'], 0) / NETWORKS.length,
@@ -272,16 +272,20 @@ export function calculateWeightedPrice(
   const products = getFilteredProducts(filter)
   
   if (filter === 'networks') {
+    // Use all networks (including waiting as they have active sites)
     return products.networks.reduce((sum, n) => sum + n.pricing[period], 0) / products.networks.length
   }
   
   if (filter === 'sites') {
-    return products.sites.reduce((sum, s) => sum + s.pricing[period], 0) / products.sites.length
+    // Only use active sites for average calculation
+    const activeSites = products.sites.filter(s => s.status === 'Active')
+    return activeSites.reduce((sum, s) => sum + s.pricing[period], 0) / activeSites.length
   }
   
-  // For 'all', calculate weighted average
+  // For 'all', calculate weighted average using only active sites
   const avgNetworkPrice = NETWORKS.reduce((sum, n) => sum + n.pricing[period], 0) / NETWORKS.length
-  const avgSitePrice = SITES.reduce((sum, s) => sum + s.pricing[period], 0) / SITES.length
+  const activeSitesAll = SITES.filter(s => s.status === 'Active')
+  const avgSitePrice = activeSitesAll.reduce((sum, s) => sum + s.pricing[period], 0) / activeSitesAll.length
   
   return (avgNetworkPrice * networkPercentage + avgSitePrice * (100 - networkPercentage)) / 100
 }

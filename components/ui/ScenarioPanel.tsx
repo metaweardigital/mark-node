@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { Sliders, Save, RefreshCw, TrendingUp, Target } from 'lucide-react'
-import { useFlowStore } from '@/lib/store/flowStore'
+import { useImprovedFlowStore } from '@/lib/store/improvedFlowStore'
 
 interface Scenario {
   name: string
@@ -29,12 +29,12 @@ const presetScenarios: Scenario[] = [
   },
   {
     name: 'Optimistic',
-    values: { visitors: 15000, regRate: 20, joinRate: 85, price: 39.90, rebillRate: 92 },
+    values: { visitors: 15000, regRate: 20, joinRate: 18, price: 39.90, rebillRate: 92 },
     expectedRevenue: 204678
   },
   {
     name: 'Aggressive',
-    values: { visitors: 25000, regRate: 25, joinRate: 90, price: 49.90, rebillRate: 95 },
+    values: { visitors: 25000, regRate: 25, joinRate: 22, price: 49.90, rebillRate: 95 },
     expectedRevenue: 561375
   }
 ]
@@ -43,10 +43,10 @@ export function ScenarioPanel() {
   const [isExpanded, setIsExpanded] = useState(false)
   const [selectedScenario, setSelectedScenario] = useState('Current')
   
-  const nodes = useFlowStore((state) => state.nodes)
-  const updateNodeValue = useFlowStore((state) => state.updateNodeValue)
-  const calculateFlow = useFlowStore((state) => state.calculateFlow)
-  const reset = useFlowStore((state) => state.reset)
+  const nodes = useImprovedFlowStore((state) => state.nodes)
+  const updateNodeValue = useImprovedFlowStore((state) => state.updateNodeValue)
+  const calculateFlow = useImprovedFlowStore((state) => state.calculateFlow)
+  const reset = useImprovedFlowStore((state) => state.reset)
 
   const applyScenario = (scenario: Scenario) => {
     // Apply all values from the scenario
@@ -70,7 +70,7 @@ export function ScenarioPanel() {
     rebillRate: nodes.find(n => n.id === '5')?.data.value || 0,
   })
 
-  const currentRevenue = nodes.find(n => n.id === '6')?.data.value || 0
+  const currentRevenue = nodes.find(n => n.id === 'mrr')?.data.value || 0
   const targetRevenue = 1000000 // $1M target
 
   const progressToTarget = Math.min((currentRevenue / targetRevenue) * 100, 100)

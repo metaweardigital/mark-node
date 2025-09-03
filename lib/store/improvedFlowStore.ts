@@ -808,51 +808,66 @@ export const useImprovedFlowStore = create<FlowStore>((set, get) => ({
             }
           }
         case 'single_1m':
-        case 'single_3m':
-        case 'single_6m':
-          const periodMap = { 'single_1m': '1_month', 'single_3m': '3_months', 'single_6m': '6_months' }
-          const period = periodMap[node.id as keyof typeof periodMap] as '1_month' | '3_months' | '6_months'
           return { 
             ...node, 
             data: { 
               ...node.data,
-              description: currentFilter === 'networks' ? 
-                `€${PRODUCT_STATS.averagePrices.networks[period].toFixed(2)}` :
-                currentFilter === 'sites' ? 
-                `€${PRODUCT_STATS.averagePrices.sites[period].toFixed(2)}` :
-                `€${((PRODUCT_STATS.averagePrices.sites[period] * 0.65 + PRODUCT_STATS.averagePrices.networks[period] * 0.35)).toFixed(2)}`
+              description: `€${single1mPrice.toFixed(2)}`
+            }
+          }
+        case 'single_3m':
+          return { 
+            ...node, 
+            data: { 
+              ...node.data,
+              description: `€${single3mPrice.toFixed(2)}`
+            }
+          }
+        case 'single_6m':
+          return { 
+            ...node, 
+            data: { 
+              ...node.data,
+              description: `€${single6mPrice.toFixed(2)}`
             }
           }
         case 'bundle_1m':
-        case 'bundle_3m':
-        case 'bundle_6m':
-          const bPeriodMap = { 'bundle_1m': '1_month', 'bundle_3m': '3_months', 'bundle_6m': '6_months' }
-          const bPeriod = bPeriodMap[node.id as keyof typeof bPeriodMap] as '1_month' | '3_months' | '6_months'
-          
-          // Hide bundle nodes only in pure networks mode
-          const shouldHide = currentFilter === 'networks' || 
+          const shouldHide1m = currentFilter === 'networks' || 
             (currentFilter === 'sites' && currentSubFilter !== 'all' && 
              (!SITES.find(s => s.id === currentSubFilter) || 
               SITES.find(s => s.id === currentSubFilter)?.network === 'None'))
-          
-          let bundlePrice = PRODUCT_STATS.averagePrices.networks[bPeriod]
-          
-          if (currentFilter === 'sites' && currentSubFilter !== 'all') {
-            const site = SITES.find(s => s.id === currentSubFilter)
-            if (site && site.network !== 'None') {
-              const network = NETWORKS.find(n => n.name === site.network)
-              if (network) {
-                bundlePrice = network.pricing[bPeriod]
-              }
-            }
-          }
-          
           return { 
             ...node, 
             data: { 
               ...node.data,
-              hidden: shouldHide,
-              description: `€${bundlePrice.toFixed(2)}`
+              hidden: shouldHide1m,
+              description: `€${bundle1mPrice.toFixed(2)}`
+            }
+          }
+        case 'bundle_3m':
+          const shouldHide3m = currentFilter === 'networks' || 
+            (currentFilter === 'sites' && currentSubFilter !== 'all' && 
+             (!SITES.find(s => s.id === currentSubFilter) || 
+              SITES.find(s => s.id === currentSubFilter)?.network === 'None'))
+          return { 
+            ...node, 
+            data: { 
+              ...node.data,
+              hidden: shouldHide3m,
+              description: `€${bundle3mPrice.toFixed(2)}`
+            }
+          }
+        case 'bundle_6m':
+          const shouldHide6m = currentFilter === 'networks' || 
+            (currentFilter === 'sites' && currentSubFilter !== 'all' && 
+             (!SITES.find(s => s.id === currentSubFilter) || 
+              SITES.find(s => s.id === currentSubFilter)?.network === 'None'))
+          return { 
+            ...node, 
+            data: { 
+              ...node.data,
+              hidden: shouldHide6m,
+              description: `€${bundle6mPrice.toFixed(2)}`
             }
           }
         case 'mrr':
