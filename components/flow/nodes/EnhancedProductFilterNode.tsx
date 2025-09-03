@@ -10,6 +10,7 @@ interface EnhancedProductFilterNodeData {
   subFilter: string // 'all' or specific id
   selectedNetwork?: string
   selectedSite?: string
+  timePeriod?: string // 'today', 'yesterday', 'last7', 'last30', '2024-08', etc.
   stats?: {
     networks: number
     sites: number
@@ -26,8 +27,10 @@ interface EnhancedProductFilterNodeProps {
 
 const EnhancedProductFilterNode = memo(({ data, id, selected }: EnhancedProductFilterNodeProps) => {
   const updateNodeFilter = useImprovedFlowStore((state) => state.updateNodeFilter)
+  const updateNodePeriod = useImprovedFlowStore((state) => state.updateNodePeriod)
   const [mainFilter, setMainFilter] = useState(data.mainFilter || 'all')
   const [subFilter, setSubFilter] = useState(data.subFilter || 'all')
+  const [timePeriod, setTimePeriod] = useState(data.timePeriod || 'today')
 
   const handleMainFilterChange = useCallback((value: string) => {
     setMainFilter(value as 'all' | 'networks' | 'sites')
@@ -39,6 +42,11 @@ const EnhancedProductFilterNode = memo(({ data, id, selected }: EnhancedProductF
     setSubFilter(value)
     updateNodeFilter(id, mainFilter, value)
   }, [id, mainFilter, updateNodeFilter])
+
+  const handleTimePeriodChange = useCallback((value: string) => {
+    setTimePeriod(value)
+    updateNodePeriod(value)
+  }, [updateNodePeriod])
 
   // Get all networks (including waiting ones as they have active sites)
   // Networks with waiting status still have active sites that can be purchased
@@ -97,6 +105,22 @@ const EnhancedProductFilterNode = memo(({ data, id, selected }: EnhancedProductF
       
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-gray-700">{data.label}</h3>
+        
+        {/* Time Period Selector */}
+        <Select value={timePeriod} onValueChange={handleTimePeriodChange}>
+          <SelectTrigger className="w-full nodrag">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="nodrag">
+            <SelectItem value="today">This Month</SelectItem>
+            <SelectItem value="2024-08">August 2024</SelectItem>
+            <SelectItem value="2024-07">July 2024</SelectItem>
+            <SelectItem value="2024-06">June 2024</SelectItem>
+            <SelectItem value="last30">Last 30 Days</SelectItem>
+            <SelectItem value="last7">Last 7 Days</SelectItem>
+            <SelectItem value="yesterday">Yesterday</SelectItem>
+          </SelectContent>
+        </Select>
         
         {/* Main Filter */}
         <Select value={mainFilter} onValueChange={handleMainFilterChange}>

@@ -8,6 +8,7 @@ import {
   OnConnect,
 } from 'reactflow'
 import { FlowNode, FlowEdge, FlowState } from '@/types/flow.types'
+import { MatomoAPIClient } from '@/lib/api/matomoClient'
 
 interface FlowStore extends FlowState {
   setNodes: (nodes: FlowNode[]) => void
@@ -20,6 +21,8 @@ interface FlowStore extends FlowState {
   calculateFlow: () => void
   reset: () => void
   loadRealData: (data: any) => void
+  fetchMatomoData: (siteId: string | null, network: string | null) => Promise<void>
+  matomoClient: MatomoAPIClient | null
 }
 
 const initialNodes: FlowNode[] = [
@@ -230,11 +233,19 @@ const initialEdges: FlowEdge[] = [
   }
 ]
 
+// Initialize Matomo client
+const matomoClient = typeof window !== 'undefined' ? new MatomoAPIClient({
+  baseUrl: process.env.NEXT_PUBLIC_MATOMO_URL || '',
+  authToken: process.env.NEXT_PUBLIC_MATOMO_AUTH_TOKEN || '',
+  cacheTimeout: 15
+}) : null
+
 export const useFlowStore = create<FlowStore>((set, get) => ({
   nodes: initialNodes,
   edges: initialEdges,
   selectedNode: null,
   isCalculating: false,
+  matomoClient,
 
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
@@ -457,5 +468,90 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     setTimeout(() => calculateFlow(), 100)
     
     console.log('Data loaded successfully:', data)
+  },
+
+  fetchMatomoData: async (siteId: string | null, network: string | null) => {
+    const { matomoClient, updateNodeValue, calculateFlow } = get()
+    
+    if (!matomoClient) {
+      console.error('Matomo client not initialized')
+      return
+    }
+
+    try {
+      let visitors = 0
+      
+      if (!siteId && !network) {
+        // Fetch all sites
+        const allSites = [
+          16, 15, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 46, 47, 48, 49, 50, 51, // CzechAV
+          82, 83, 84, 85, 86, 87, 88, 56, // CzechGAV
+          57, 59, 60, 55, 54, 62, 65, 58, 63, // GoPerv
+          77, 78, 79, 80, 81, // XXL
+          73, 69, 70, 76, 66, 74, 72, 71, 68, 67, 75 // NUDZ
+        ]
+        
+        // Use bulk API for all sites
+        const promises = allSites.map(id => 
+          matomoClient.fetchMetrics(id, 'month', 'today')
+        )
+        const results = await Promise.all(promises)
+        
+        visitors = results.reduce((sum, data) => 
+          sum + (data?.nb_uniq_visitors || 0), 0
+        )
+      } else if (network) {
+        // Fetch network sites
+        let networkSites: number[] = []
+        
+        switch (network.toLowerCase()) {
+          case 'czechav':
+          case 'czechcash':
+            networkSites = [16, 15, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 46, 47, 48, 49, 50, 51]
+            break
+          case 'czechgav':
+            networkSites = [82, 83, 84, 85, 86, 87, 88, 56]
+            break
+          case 'goperv':
+            networkSites = [57, 59, 60, 55, 54, 62, 65, 58, 63]
+            break
+          case 'xxl':
+            networkSites = [77, 78, 79, 80, 81]
+            break
+          case 'nudz':
+            networkSites = [73, 69, 70, 76, 66, 74, 72, 71, 68, 67, 75]
+            break
+        }
+        
+        if (networkSites.length > 0) {
+          const promises = networkSites.map(id => 
+            matomoClient.fetchMetrics(id, 'month', 'today')
+          )
+          const results = await Promise.all(promises)
+          
+          visitors = results.reduce((sum, data) => 
+            sum + (data?.nb_uniq_visitors || 0), 0
+          )
+        }
+      } else if (siteId) {
+        // Fetch single site
+        const siteIdNum = matomoClient.getSiteIdByName(siteId)
+        if (siteIdNum) {
+          const data = await matomoClient.fetchMetrics(siteIdNum, 'month', 'today')
+          visitors = data?.nb_uniq_visitors || 0
+        }
+      }
+      
+      // Update visitor node with real data
+      if (visitors > 0) {
+        updateNodeValue('1', visitors)
+        console.log(`Updated visitors from Matomo: ${visitors.toLocaleString()}`)
+        
+        // Trigger flow recalculation
+        setTimeout(() => calculateFlow(), 100)
+      }
+    } catch (error) {
+      console.error('Failed to fetch Matomo data:', error)
+    }
   }
 }))

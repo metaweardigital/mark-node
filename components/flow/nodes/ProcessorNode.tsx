@@ -30,8 +30,8 @@ export function ProcessorNode({ id, data, selected }: NodeProps<NodeData>) {
     <div
       className={`
         px-4 py-3 rounded-lg shadow-lg min-w-[180px]
-        bg-gradient-to-br from-blue-500 to-blue-700
-        border-2 ${selected ? 'border-white' : 'border-blue-600'}
+        bg-gradient-to-br from-blue-500 to-blue-600
+        ${selected ? 'ring-2 ring-white ring-offset-2 ring-offset-blue-700' : ''}
         text-white relative
       `}
     >

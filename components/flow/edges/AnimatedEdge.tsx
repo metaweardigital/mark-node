@@ -38,10 +38,7 @@ export function AnimatedEdge({
 
   // Calculate stroke width based on value
   const getStrokeWidth = () => {
-    if (!data?.value) return 2
-    // Logarithmic scale for better visualization
-    const width = Math.log10(data.value + 1) * 0.8 + 1
-    return Math.min(Math.max(width, 2), 8)
+    return 2 // Consistent thickness for all edges
   }
 
   const edgeColor = getEdgeColor()
@@ -56,19 +53,9 @@ export function AnimatedEdge({
         style={{
           stroke: edgeColor,
           strokeWidth,
-          opacity: 0.6,
-        }}
-      />
-      <BaseEdge
-        id={`${id}-animated`}
-        path={edgePath}
-        markerEnd={markerEnd}
-        style={{
-          stroke: edgeColor,
-          strokeWidth: strokeWidth * 0.5,
-          opacity: 0.8,
-          strokeDasharray: '10 20',
-          animation: `flow 2s linear infinite`,
+          opacity: 1,
+          strokeDasharray: '3 3',
+          animation: 'flow-animation 1.5s linear infinite',
         }}
       />
       {data?.conversionRate && (
@@ -92,16 +79,6 @@ export function AnimatedEdge({
           </div>
         </EdgeLabelRenderer>
       )}
-      <style jsx>{`
-        @keyframes flow {
-          from {
-            stroke-dashoffset: 0;
-          }
-          to {
-            stroke-dashoffset: -30;
-          }
-        }
-      `}</style>
     </>
   )
 }

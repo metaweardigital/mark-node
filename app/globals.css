@@ -132,6 +132,16 @@ body {
   }
 }
 
+/* Flow animation for edge connectors */
+@keyframes flow-animation {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -30;
+  }
+}
+
 /* Panel Animations */
 @keyframes slideIn {
   from {

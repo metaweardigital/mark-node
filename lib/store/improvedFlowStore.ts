@@ -11,6 +11,7 @@ import {
 } from 'reactflow'
 import { calculateMRR, calculateWeightedAveragePrice, PRODUCT_DISTRIBUTION } from '@/lib/config/pricing'
 import { calculateWeightedPrice, PRODUCT_STATS, ProductFilter, NETWORKS, SITES } from '@/lib/config/realPricing'
+import { MatomoAPIClient, MatomoConfig, MatomoMetrics, SITE_MAPPINGS } from '@/lib/api/matomoClient'
 
 type FlowNode = Node
 type FlowEdge = Edge
@@ -23,6 +24,13 @@ interface FlowStore {
   productFilter: ProductFilter
   subFilter: string
   
+  // Matomo integration
+  matomoClient: MatomoAPIClient | null
+  currentMetrics: MatomoMetrics | null
+  isLoadingMetrics: boolean
+  metricsError: string | null
+  currentPeriod: string // 'today', '2024-08', etc.
+  
   setNodes: (nodes: FlowNode[]) => void
   setEdges: (edges: FlowEdge[]) => void
   onNodesChange: OnNodesChange
@@ -30,32 +38,53 @@ interface FlowStore {
   onConnect: OnConnect
   updateNodeValue: (nodeId: string, value: number) => void
   updateNodeFilter: (nodeId: string, mainFilter: ProductFilter, subFilter?: string) => void
+  updateNodePeriod: (period: string) => void
   setSelectedNode: (nodeId: string | null) => void
   calculateFlow: () => void
   reset: () => void
   loadRealData: (data: any) => void
+  
+  // Matomo methods
+  initMatomoClient: (config: MatomoConfig, mappings?: Record<string, number>) => void
+  fetchVisitorMetrics: (sourceType: 'all' | 'network' | 'site', sourceId?: string, period?: string) => Promise<void>
+  updateVisitorNode: (metrics: MatomoMetrics) => void
 }
 
 const initialNodes: FlowNode[] = [
-  // Main Flow
+  // TRAFFIC SOURCE - NOW AT TOP OF FLOW
+  {
+    id: 'traffic_source',
+    type: 'enhancedProductFilter',
+    position: { x: 0, y: -200 },
+    data: {
+      label: 'Traffic Source',
+      mainFilter: 'all' as ProductFilter,
+      subFilter: 'all',
+      stats: {
+        networks: PRODUCT_STATS.totalNetworks,
+        sites: PRODUCT_STATS.activeSites,
+        avgPrice: 0
+      }
+    }
+  },
+  
+  // Main Flow - Dynamic Visitors
   {
     id: '1',
     type: 'source',
-    position: { x: 100, y: 300 },
+    position: { x: 0, y: 200 },
     data: { 
       label: 'Monthly Visitors', 
-      value: 10000,
+      value: 10000, // Initial placeholder value
       unit: 'visitors',
-      isAdjustable: true,
-      min: 100,
-      max: 100000,
-      step: 100
+      isAdjustable: false, // Now controlled by traffic source
+      dataSource: 'static' // Will change to 'matomo' when real data loads
     }
   },
   {
     id: '2',
     type: 'processor',
-    position: { x: 350, y: 300 },
+    position: { x: 350, y: 200 },
     data: { 
       label: 'Registration Rate', 
       value: 15,
@@ -70,7 +99,7 @@ const initialNodes: FlowNode[] = [
   {
     id: '3',
     type: 'processor',
-    position: { x: 600, y: 300 },
+    position: { x: 600, y: 200 },
     data: { 
       label: 'Purchase Rate', 
       value: 12,
@@ -83,28 +112,11 @@ const initialNodes: FlowNode[] = [
     }
   },
   
-  // Enhanced Product Filter Node
-  {
-    id: 'filter',
-    type: 'enhancedProductFilter',
-    position: { x: 850, y: 50 },
-    data: {
-      label: 'Product Filter',
-      mainFilter: 'all' as ProductFilter,
-      subFilter: 'all',
-      stats: {
-        networks: PRODUCT_STATS.totalNetworks,
-        sites: PRODUCT_STATS.activeSites,
-        avgPrice: 0
-      }
-    }
-  },
-  
-  // Product Type Split
+  // Product Type Split (after purchase decision)
   {
     id: 'split',
     type: 'processor',
-    position: { x: 850, y: 300 },
+    position: { x: 850, y: 200 },
     data: { 
       label: 'Product Selection', 
       value: 180, // Will be calculated
@@ -118,7 +130,7 @@ const initialNodes: FlowNode[] = [
   {
     id: 'single',
     type: 'processor',
-    position: { x: 1100, y: 200 },
+    position: { x: 1100, y: 180 },
     data: { 
       label: 'Individual Sites', 
       value: 65, // 65% choose single
@@ -136,7 +148,7 @@ const initialNodes: FlowNode[] = [
   {
     id: 'bundle',
     type: 'processor',
-    position: { x: 1100, y: 400 },
+    position: { x: 1100, y: 420 },
     data: { 
       label: 'Network Bundles', 
       value: 35, // 35% choose bundle
@@ -154,7 +166,7 @@ const initialNodes: FlowNode[] = [
   {
     id: 'single_1m',
     type: 'processor',
-    position: { x: 1400, y: 100 },
+    position: { x: 1400, y: 50 },
     data: { 
       label: '1 Month', 
       value: 40,
@@ -170,7 +182,7 @@ const initialNodes: FlowNode[] = [
   {
     id: 'single_3m',
     type: 'processor',
-    position: { x: 1400, y: 200 },
+    position: { x: 1400, y: 180 },
     data: { 
       label: '3 Months', 
       value: 35,
@@ -186,7 +198,7 @@ const initialNodes: FlowNode[] = [
   {
     id: 'single_6m',
     type: 'processor',
-    position: { x: 1400, y: 300 },
+    position: { x: 1400, y: 310 },
     data: { 
       label: '6 Months', 
       value: 25,
@@ -204,7 +216,7 @@ const initialNodes: FlowNode[] = [
   {
     id: 'bundle_1m',
     type: 'processor',
-    position: { x: 1400, y: 400 },
+    position: { x: 1400, y: 460 },
     data: { 
       label: '1 Month', 
       value: 40,
@@ -220,7 +232,7 @@ const initialNodes: FlowNode[] = [
   {
     id: 'bundle_3m',
     type: 'processor',
-    position: { x: 1400, y: 500 },
+    position: { x: 1400, y: 590 },
     data: { 
       label: '3 Months', 
       value: 35,
@@ -236,7 +248,7 @@ const initialNodes: FlowNode[] = [
   {
     id: 'bundle_6m',
     type: 'processor',
-    position: { x: 1400, y: 600 },
+    position: { x: 1400, y: 720 },
     data: { 
       label: '6 Months', 
       value: 25,
@@ -250,7 +262,7 @@ const initialNodes: FlowNode[] = [
     }
   },
   
-  // Revenue Aggregation
+  // Revenue Aggregation (increased spacing)
   {
     id: 'mrr',
     type: 'outcome',
@@ -265,7 +277,7 @@ const initialNodes: FlowNode[] = [
   {
     id: 'arr',
     type: 'outcome',
-    position: { x: 1950, y: 350 },
+    position: { x: 2100, y: 350 },
     data: { 
       label: 'Annual Revenue', 
       value: 0,
@@ -436,6 +448,24 @@ const initialEdges: FlowEdge[] = [
   }
 ]
 
+// Auto-initialize Matomo client from env vars
+const initializeMatomoClient = () => {
+  const url = process.env.NEXT_PUBLIC_MATOMO_URL
+  const token = process.env.NEXT_PUBLIC_MATOMO_AUTH_TOKEN
+  
+  if (url && token) {
+    const client = new MatomoAPIClient({
+      baseUrl: url,
+      authToken: token,
+      defaultPeriod: 'month',
+      cacheTimeout: parseInt(process.env.NEXT_PUBLIC_MATOMO_CACHE_TIMEOUT || '15')
+    })
+    console.log('[Matomo] Auto-initialized from environment variables')
+    return client
+  }
+  return null
+}
+
 export const useImprovedFlowStore = create<FlowStore>((set, get) => ({
   nodes: initialNodes,
   edges: initialEdges,
@@ -443,6 +473,13 @@ export const useImprovedFlowStore = create<FlowStore>((set, get) => ({
   isCalculating: false,
   productFilter: 'all' as ProductFilter,
   subFilter: 'all',
+  
+  // Matomo state - auto-initialized from env
+  matomoClient: initializeMatomoClient(),
+  currentMetrics: null,
+  isLoadingMetrics: false,
+  metricsError: null,
+  currentPeriod: 'today',
 
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
@@ -478,14 +515,65 @@ export const useImprovedFlowStore = create<FlowStore>((set, get) => ({
     setTimeout(() => get().calculateFlow(), 0)
   },
 
+  updateNodePeriod: (period: string) => {
+    const { productFilter, subFilter, fetchVisitorMetrics } = get()
+    set({ currentPeriod: period })
+    
+    // Re-fetch data with new period
+    if (productFilter === 'all') {
+      fetchVisitorMetrics('all', undefined, period)
+    } else if (productFilter === 'networks') {
+      if (subFilter === 'all') {
+        fetchVisitorMetrics('network', 'all', period)
+      } else {
+        fetchVisitorMetrics('network', subFilter, period)
+      }
+    } else if (productFilter === 'sites') {
+      if (subFilter === 'all') {
+        fetchVisitorMetrics('site', 'all', period)
+      } else {
+        fetchVisitorMetrics('site', subFilter, period)
+      }
+    }
+  },
+
   updateNodeFilter: (nodeId: string, mainFilter: ProductFilter, subFilter: string = 'all') => {
-    const { nodes, calculateFlow } = get()
+    const { nodes, calculateFlow, fetchVisitorMetrics, matomoClient } = get()
     const updatedNodes = nodes.map(node => 
       node.id === nodeId 
         ? { ...node, data: { ...node.data, mainFilter, subFilter } }
         : node
     )
     set({ nodes: updatedNodes, productFilter: mainFilter, subFilter })
+    
+    // If this is the traffic source node and we have Matomo client, fetch real data
+    if ((nodeId === 'traffic_source' || nodeId === 'filter') && matomoClient) {
+      const { currentPeriod } = get()
+      // Traffic source changed, fetching Matomo data
+      
+      // Map the filter to source type for Matomo
+      if (mainFilter === 'all') {
+        // Aggregate ALL 67 sites
+        fetchVisitorMetrics('all', undefined, currentPeriod)
+      } else if (mainFilter === 'networks') {
+        if (subFilter === 'all') {
+          // When "All Networks" is selected, aggregate all sites that belong to networks
+          fetchVisitorMetrics('network', 'all', currentPeriod)
+        } else {
+          // Aggregate all sites in this specific pricing network
+          fetchVisitorMetrics('network', subFilter, currentPeriod)
+        }
+      } else if (mainFilter === 'sites') {
+        if (subFilter === 'all') {
+          // When "All Sites" is selected, show only standalone sites (not in networks)
+          fetchVisitorMetrics('site', 'all', currentPeriod)
+        } else {
+          // Single site only (e.g., czechav = just site #16)
+          fetchVisitorMetrics('site', subFilter, currentPeriod)
+        }
+      }
+    }
+    
     setTimeout(() => calculateFlow(), 100)
   },
 
@@ -503,8 +591,8 @@ export const useImprovedFlowStore = create<FlowStore>((set, get) => ({
     const signups = visitors * (regRate / 100)
     const purchases = signups * (purchaseRate / 100)
     
-    // Get filter node and current filter FIRST
-    const filterNode = nodes.find(n => n.id === 'filter')
+    // Get traffic source node (renamed from filter) FIRST
+    const filterNode = nodes.find(n => n.id === 'traffic_source' || n.id === 'filter')
     const currentFilter = filterNode?.data.mainFilter || get().productFilter || 'all'
     const currentSubFilter = filterNode?.data.subFilter || get().subFilter || 'all'
     
@@ -953,9 +1041,20 @@ export const useImprovedFlowStore = create<FlowStore>((set, get) => ({
       }
     })
     
+    // Filter out edges connected to hidden nodes
+    const hiddenNodeIds = new Set(
+      updatedNodes
+        .filter(node => (node.data as any).hidden)
+        .map(node => node.id)
+    )
+    
+    const filteredEdges = updatedEdges.filter(edge => 
+      !hiddenNodeIds.has(edge.source) && !hiddenNodeIds.has(edge.target)
+    )
+    
     set({
       nodes: updatedNodes,
-      edges: updatedEdges,
+      edges: filteredEdges,
       isCalculating: false
     })
   },
@@ -991,5 +1090,117 @@ export const useImprovedFlowStore = create<FlowStore>((set, get) => ({
     
     setTimeout(() => calculateFlow(), 100)
     console.log('Real data loaded:', data)
+  },
+  
+  // Matomo integration methods
+  initMatomoClient: (config: MatomoConfig, mappings?: Record<string, number>) => {
+    const client = new MatomoAPIClient(config)
+    
+    // Set site mappings if provided
+    if (mappings) {
+      const { setSiteMappings } = require('@/lib/api/matomoClient')
+      setSiteMappings(mappings)
+    }
+    
+    set({ matomoClient: client })
+    // Matomo client initialized
+  },
+  
+  fetchVisitorMetrics: async (sourceType: 'all' | 'network' | 'site', sourceId?: string, period?: string) => {
+    const { matomoClient, currentPeriod } = get()
+    
+    if (!matomoClient) {
+      console.warn('[Store] Matomo client not initialized')
+      set({ metricsError: 'Matomo client not initialized' })
+      return
+    }
+    
+    // Use provided period or fall back to stored currentPeriod
+    const actualPeriod = period || currentPeriod || 'today'
+    
+    set({ isLoadingMetrics: true, metricsError: null })
+    
+    try {
+      // Fetching metrics
+      
+      // Map source type to proper filter
+      let metrics: MatomoMetrics
+      
+      if (sourceType === 'all') {
+        metrics = await matomoClient.getMetricsForTrafficSource('all', undefined, actualPeriod)
+      } else if (sourceType === 'network') {
+        metrics = await matomoClient.getMetricsForTrafficSource('network', sourceId, actualPeriod)
+      } else {
+        metrics = await matomoClient.getMetricsForTrafficSource('site', sourceId, actualPeriod)
+      }
+      
+      // Received metrics
+      set({ currentMetrics: metrics, isLoadingMetrics: false })
+      
+      // Update visitor node with real data
+      get().updateVisitorNode(metrics)
+      
+    } catch (error) {
+      console.error('[Store] Failed to fetch metrics:', error)
+      set({ 
+        isLoadingMetrics: false, 
+        metricsError: error instanceof Error ? error.message : 'Failed to fetch metrics'
+      })
+    }
+  },
+  
+  updateVisitorNode: (metrics: MatomoMetrics) => {
+    const { nodes, calculateFlow } = get()
+    
+    // Updating visitor node with metrics
+    
+    // Update the visitor node (id: '1') with real data
+    const updatedNodes = nodes.map(node => {
+      if (node.id === '1') {
+        const newValue = metrics.nb_uniq_visitors || 10000
+        // Updating visitor node value
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            value: newValue,
+            dataSource: 'matomo',
+            metrics: {
+              daily: Math.round(metrics.nb_uniq_visitors / 30),
+              monthly: metrics.nb_uniq_visitors,
+              visits: metrics.nb_visits,
+              bounceRate: metrics.bounce_rate,
+              avgTimeOnSite: metrics.avg_time_on_site
+            }
+          }
+        }
+      }
+      
+      // Also update visitor analytics node if it exists
+      if (node.id === 'visitor_analytics') {
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            value: metrics.nb_uniq_visitors,
+            description: `Bounce: ${metrics.bounce_rate.toFixed(1)}% | Avg Time: ${Math.round(metrics.avg_time_on_site / 60)}m`,
+            matomoData: {
+              daily: Math.round(metrics.nb_uniq_visitors / 30),
+              monthly: metrics.nb_uniq_visitors,
+              bounceRate: metrics.bounce_rate,
+              avgTimeOnSite: metrics.avg_time_on_site,
+              dataSource: 'live'
+            }
+          }
+        }
+      }
+      
+      return node
+    })
+    
+    set({ nodes: updatedNodes })
+    
+    // Recalculate flow with new visitor data
+    setTimeout(() => calculateFlow(), 100)
   }
 }))
